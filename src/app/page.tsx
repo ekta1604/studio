@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { runGeneratePersonalizedSentence } from "./actions"
 import Header from "@/components/header"
 import { Bot, Briefcase, ClipboardCopy, FileText, Key, Loader2, Mail, PlusCircle, Send, Sparkles, Trash2, User } from "lucide-react"
+import { sendEmail, findRecruiterEmailServer, findEmailWithVoilaNorbert, findEmailSmart } from "./actions";
 
 interface Application {
   id: string;
@@ -30,11 +31,12 @@ const HireUpPage: NextPage = () => {
 
   const [settings, setSettings] = useState({
     name: 'Ekta Patel',
-    portfolio: 'https://portfolio.dev/ekta',
-    skills: 'React, Next.js, TypeScript, Node.js, Python, building user-friendly and scalable applications, working on real-world problems',
-    emailTemplate: `Hi {recruiter_name},\n\nI’m {user_name} — I recently completed my Master’s in Computer Science from UT Arlington. \n\nI came across the {job_title} role at {company_name}, and I genuinely felt it aligns well with both my interests and skills. {custom_sentence}\n\nThank you so much for your time. I’d be grateful if you could refer me or point me in the right direction.\n\nI totally understand that you’re busy, and it is okay even if you don’t respond to this message. I will do a follow-up in the next three days, to make sure that you have read my message.\n\nI’m sharing my resume and portfolio here for your reference:\nResume\nPortfolio\n\nBest,\n{user_name}`,
-    hunterApiKey: '',
-    gmailAppPassword: ''
+    portfolio: 'https://linkedin.com/in/ekta-patel--',
+    skills: 'Python, Java, JavaScript, Spring Boot, Flask, Hadoop, TensorFlow, scikit-learn, MySQL, PostgreSQL, AWS RDS, AWS EC2, AWS S3, AWS EBS, CircleCI, Docker, Node.js, HTML, CSS, Bootstrap, Microsoft Entra ID, JWT, Git, GitHub, OpenAI API, NLP, Prompt Engineering, Matplotlib, Plotly, Streamlit, Jira, Agile, Scrum, Excel, SDSC Expanse, Jupyter Notebook, PyCharm, PowerBI, Tableau, Eclipse, VS Code, DBeaver, Postman, DataBricks, IntelliJ IDEA',
+    emailTemplate: `Hi {recruiter_name},\n\nI'm {user_name} — I recently completed my Master's in Computer Science from UT Arlington. \n\nI came across the {job_title} role at {company_name}, and I genuinely felt it aligns well with both my interests and skills. {custom_sentence}\n\nThank you so much for your time. I'd be grateful if you could refer me or point me in the right direction.\n\nI totally understand that you're busy, and it is okay even if you don't respond to this message. I will do a follow-up in the next three days, to make sure that you have read my message.\n\nI'm sharing my resume and portfolio here for your reference:\nResume\nPortfolio: {portfolio}\n\nBest,\n{user_name}`,
+    voilaApiKey: '4cb106ed-0dfe-4827-a20b-a0adcb291c05',
+    gmail: 'ektapatel16042@gmail.com',
+    gmailAppPassword: 'Ekta@1642002'
   });
 
   const [newJob, setNewJob] = useState({
@@ -44,7 +46,22 @@ const HireUpPage: NextPage = () => {
     jobDescription: ''
   });
 
+  const [emailFinder, setEmailFinder] = useState({
+    companyName: '',
+    personName: '',
+    foundEmail: ''
+  });
+
   const [applications, setApplications] = useState<Application[]>([]);
+
+  // Function to sanitize domain input
+  function sanitizeDomain(input: string): string {
+    let domain = input.trim().toLowerCase().replace(/\s+/g, '');
+    if (!domain.endsWith(".com")) {
+      domain += ".com";
+    }
+    return domain;
+  }
 
   const handleSettingsChange = (field: keyof typeof settings, value: string) => {
     setSettings(prev => ({ ...prev, [field]: value }));
@@ -52,6 +69,31 @@ const HireUpPage: NextPage = () => {
 
   const handleNewJobChange = (field: keyof typeof newJob, value: string) => {
     setNewJob(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEmailFinderChange = (field: keyof typeof emailFinder, value: string) => {
+    setEmailFinder(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFindEmail = async () => {
+    if (!emailFinder.companyName || !emailFinder.personName) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please enter both company name and person name.",
+      });
+      return;
+    }
+
+    const domain = sanitizeDomain(emailFinder.companyName);
+    const email = await findRecruiterEmail(domain, emailFinder.personName);
+    if (email) {
+      setEmailFinder(prev => ({ ...prev, foundEmail: email }));
+      toast({
+        title: "Email Found!",
+        description: `Email: ${email}`,
+      });
+    }
   };
 
   const handleGenerate = () => {
@@ -74,7 +116,8 @@ const HireUpPage: NextPage = () => {
             .replace(/{user_name}/g, settings.name)
             .replace(/{job_title}/g, newJob.jobTitle)
             .replace(/{company_name}/g, newJob.companyName)
-            .replace(/{custom_sentence}/g, sentence);
+            .replace(/{custom_sentence}/g, sentence)
+            .replace(/{portfolio}/g, settings.portfolio);
 
         const newApplication: Application = {
             id: newId,
@@ -111,6 +154,102 @@ const HireUpPage: NextPage = () => {
   const deleteApplication = (id: string) => {
     setApplications(apps => apps.filter(app => app.id !== id));
     toast({ title: "Application Deleted" });
+  };
+
+  // Function to find recruiter email using Voila Norbert only
+  const findRecruiterEmail = async (companyDomain: string, recruiterName?: string) => {
+    if (!settings.voilaApiKey) {
+      toast({
+        variant: "destructive",
+        title: "Missing Voila Norbert API Key",
+        description: "Please enter your Voila Norbert API key in the settings.",
+      });
+      return null;
+    }
+
+    if (!recruiterName) {
+      toast({
+        variant: "destructive",
+        title: "Recruiter Name Required",
+        description: "Recruiter name is required to find an email address.",
+      });
+      return null;
+    }
+
+    try {
+      const [firstName, ...lastNameParts] = recruiterName.trim().split(' ');
+      const lastName = lastNameParts.join(' ');
+      if (firstName && lastName) {
+        const result = await findEmailWithVoilaNorbert({
+          voilaApiKey: settings.voilaApiKey,
+          firstName,
+          lastName,
+          domain: companyDomain
+        });
+        return result.email;
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Invalid Name Format",
+          description: "Please provide both first and last name of the recruiter.",
+        });
+        return null;
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Email Search Failed",
+        description: error.message || "Failed to find email address with Voila Norbert.",
+      });
+      return null;
+    }
+  };
+
+  // Handler for Send Email button (recruiter name optional)
+  const handleSendEmail = async (app: Application) => {
+    if (!app.companyName) {
+      toast({
+        variant: "destructive",
+        title: "Missing Info",
+        description: "Company name is required to find an email.",
+      });
+      return;
+    }
+    if (!settings.gmail || !settings.gmailAppPassword) {
+      toast({
+        variant: "destructive",
+        title: "Missing Gmail Credentials",
+        description: "Please enter your Gmail address and app password in the settings.",
+      });
+      return;
+    }
+    const domain = sanitizeDomain(app.companyName);
+    const email = await findRecruiterEmail(domain, app.recruiterName);
+    if (email) {
+      toast({
+        title: "Email Found!",
+        description: `Email: ${email}`,
+      });
+      try {
+        await sendEmail({
+          to: email,
+          subject: `Application for ${app.jobTitle} at ${app.companyName}`,
+          text: app.fullEmail || '',
+          gmailAppPassword: settings.gmailAppPassword,
+          gmail: settings.gmail
+        });
+        toast({
+          title: "Email Sent!",
+          description: `Your application email was sent to ${email}`,
+        });
+      } catch (error: any) {
+        toast({
+          variant: "destructive",
+          title: "Send Failed",
+          description: error.message || "Failed to send email.",
+        });
+      }
+    }
   };
 
   return (
@@ -159,23 +298,6 @@ const HireUpPage: NextPage = () => {
               </CardHeader>
               <CardContent>
                 <Textarea value={settings.emailTemplate} onChange={e => handleSettingsChange('emailTemplate', e.target.value)} rows={12} className="text-xs leading-relaxed"/>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2"><Key size={24} /> API & Services</CardTitle>
-                <CardDescription>Credentials for third-party services.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                 <div className="space-y-2">
-                  <Label htmlFor="hunter-key">Hunter.io API Key</Label>
-                  <Input id="hunter-key" type="password" placeholder="Enter Hunter.io API Key" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="gmail-pass">Gmail App Password</Label>
-                  <Input id="gmail-pass" type="password" placeholder="Enter Gmail App Password" />
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -260,7 +382,7 @@ const HireUpPage: NextPage = () => {
                             <Button variant="outline" size="sm" onClick={() => deleteApplication(app.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" /> Delete
                             </Button>
-                            <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                            <Button size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => handleSendEmail(app)}>
                                 <Send className="mr-2 h-4 w-4" /> Send Email
                             </Button>
                            </div>
