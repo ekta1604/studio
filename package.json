@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "postinstall": "npm install --legacy-peer-deps"
+    /
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
