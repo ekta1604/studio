@@ -21,6 +21,7 @@ interface Application {
   companyName: string;
   recruiterName: string;
   jobDescription: string;
+  recipientEmail: string;
   status: 'Pending' | 'Generated' | 'Sent';
   personalizedSentence?: string;
   fullEmail?: string;
@@ -41,11 +42,15 @@ const HireUpPage: NextPage = () => {
     gmailAppPassword: ''
   });
 
+
+
+
   const [newJob, setNewJob] = useState({
     jobTitle: '',
     companyName: '',
     recruiterName: '',
-    jobDescription: ''
+    jobDescription: '',
+    recipientEmail: ''
   });
 
   const [emailFinder, setEmailFinder] = useState({
@@ -130,7 +135,7 @@ const HireUpPage: NextPage = () => {
         };
 
         setApplications(prev => [newApplication, ...prev]);
-        setNewJob({ jobTitle: '', companyName: '', recruiterName: '', jobDescription: '' });
+        setNewJob({ jobTitle: '', companyName: '', recruiterName: '', jobDescription: '', recipientEmail: '' });
         toast({
           title: "Success!",
           description: "Personalized sentence and email have been generated.",
@@ -157,6 +162,9 @@ const HireUpPage: NextPage = () => {
     setApplications(apps => apps.filter(app => app.id !== id));
     toast({ title: "Application Deleted" });
   };
+
+      
+  
 
   // Function to find recruiter email using Voila Norbert only
   const findRecruiterEmail = async (companyDomain: string, recruiterName?: string) => {
@@ -207,56 +215,57 @@ const HireUpPage: NextPage = () => {
     }
   };
 
-  // Handler for Send Email button (recruiter name optional)
+    // Handler for Send Email button (uses API route like manual email sender)
   const handleSendEmail = async (app: Application) => {
-    if (!app.companyName) {
+    if (!app.recipientEmail) {
       toast({
         variant: "destructive",
-        title: "Missing Info",
-        description: "Company name is required to find an email.",
+        title: "Missing Recipient Email",
+        description: "Please add a recipient email in the application form.",
       });
       return;
     }
-    if (!settings.gmail || !settings.gmailAppPassword) {
-      toast({
-        variant: "destructive",
-        title: "Missing Gmail Credentials",
-        description: "Please enter your Gmail address and app password in the settings.",
+    try {
+      const res = await fetch('/api/sendEmail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          toEmail: app.recipientEmail,
+          body: app.fullEmail || '',
+          company_name: app.companyName,
+        }),
       });
-      return;
-    }
-    const domain = sanitizeDomain(app.companyName);
-    const email = await findRecruiterEmail(domain, app.recruiterName);
-    if (email) {
-      toast({
-        title: "Email Found!",
-        description: `Email: ${email}`,
-      });
-      try {
-        await sendEmail({
-          to: email,
-          subject: `Application for ${app.jobTitle} at ${app.companyName}`,
-          text: app.fullEmail || '',
-          gmailAppPassword: settings.gmailAppPassword,
-          gmail: settings.gmail
-        });
+
+      const data = await res.json();
+      if (data.success) {
         toast({
-          title: "Email Sent!",
-          description: `Your application email was sent to ${email}`,
+          title: "✅ Email sent successfully!",
+          description: `Your application email was sent to ${app.recipientEmail}`,
         });
-      } catch (error: any) {
+      } else {
         toast({
           variant: "destructive",
-          title: "Send Failed",
-          description: error.message || "Failed to send email.",
+          title: "❌ Failed to send email.",
+          description: data.error || "An error occurred while sending the email.",
         });
       }
+    } catch (err) {
+      console.error(err);
+      toast({
+        variant: "destructive",
+        title: "🚨 Error sending email.",
+        description: "An unexpected error occurred while sending the email.",
+      });
     }
   };
 
+
+
   return (
     <div className="min-h-screen bg-background text-foreground">
-    <Header>
+  <Header>
   {session?.user?.email && (
     <div className="flex justify-end items-center gap-4 px-4">
       <p className="text-sm text-muted-foreground">
@@ -338,6 +347,10 @@ const HireUpPage: NextPage = () => {
                   <Input id="recruiter-name" value={newJob.recruiterName} onChange={e => handleNewJobChange('recruiterName', e.target.value)} placeholder="e.g., Jane Doe" />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="recipient-email">Recipient Email</Label>
+                  <Input id="recipient-email" type="email" value={newJob.recipientEmail} onChange={e => handleNewJobChange('recipientEmail', e.target.value)} placeholder="e.g., recruiter@company.com" />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="job-description">Job Description</Label>
                   <Textarea id="job-description" value={newJob.jobDescription} onChange={e => handleNewJobChange('jobDescription', e.target.value)} placeholder="Paste the full job description here..." rows={6} />
                 </div>
@@ -378,6 +391,7 @@ const HireUpPage: NextPage = () => {
                             </CardContent>
                            </Card>
                            
+                           
                            <Card>
                             <CardHeader>
                                <div className="flex justify-between items-center">
@@ -406,6 +420,8 @@ const HireUpPage: NextPage = () => {
                 )}
               </CardContent>
             </Card>
+
+
           </div>
 
         </div>

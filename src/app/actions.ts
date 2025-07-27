@@ -38,7 +38,7 @@ export async function sendEmail({ to, subject, text, gmailAppPassword }: { to: s
             from: 'ektaabroad@gmail.com', // Updated sender email
             to,
             subject,
-            text
+            html: text.replace(/\n/g, "<br>")
         });
         return { success: true, info };
     } catch (error) {
