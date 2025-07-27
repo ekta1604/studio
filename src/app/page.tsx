@@ -1,5 +1,6 @@
 "use client"
 
+import { useSession, signOut } from "next-auth/react";
 import { useState, useTransition } from "react"
 import type { NextPage } from "next"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
@@ -26,17 +27,18 @@ interface Application {
 }
 
 const HireUpPage: NextPage = () => {
+  const { data: session } = useSession();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const [settings, setSettings] = useState({
-    name: 'Ekta Patel',
-    portfolio: 'https://linkedin.com/in/ekta-patel--',
-    skills: 'Python, Java, JavaScript, Spring Boot, Flask, Hadoop, TensorFlow, scikit-learn, MySQL, PostgreSQL, AWS RDS, AWS EC2, AWS S3, AWS EBS, CircleCI, Docker, Node.js, HTML, CSS, Bootstrap, Microsoft Entra ID, JWT, Git, GitHub, OpenAI API, NLP, Prompt Engineering, Matplotlib, Plotly, Streamlit, Jira, Agile, Scrum, Excel, SDSC Expanse, Jupyter Notebook, PyCharm, PowerBI, Tableau, Eclipse, VS Code, DBeaver, Postman, DataBricks, IntelliJ IDEA',
-    emailTemplate: `Hi {recruiter_name},\n\nI'm {user_name} — I recently completed my Master's in Computer Science from UT Arlington. \n\nI came across the {job_title} role at {company_name}, and I genuinely felt it aligns well with both my interests and skills. {custom_sentence}\n\nThank you so much for your time. I'd be grateful if you could refer me or point me in the right direction.\n\nI totally understand that you're busy, and it is okay even if you don't respond to this message. I will do a follow-up in the next three days, to make sure that you have read my message.\n\nI'm sharing my resume and portfolio here for your reference:\nResume\nPortfolio: {portfolio}\n\nBest,\n{user_name}`,
+    name: '',
+    portfolio: '',
+    skills: '',
+    emailTemplate: ``,
     voilaApiKey: '4cb106ed-0dfe-4827-a20b-a0adcb291c05',
-    gmail: 'ektapatel16042@gmail.com',
-    gmailAppPassword: 'Ekta@1642002'
+    gmail: '',
+    gmailAppPassword: ''
   });
 
   const [newJob, setNewJob] = useState({
@@ -254,7 +256,18 @@ const HireUpPage: NextPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
+    <Header>
+  {session?.user?.email && (
+    <div className="flex justify-end items-center gap-4 px-4">
+      <p className="text-sm text-muted-foreground">
+        Welcome, {session.user.email}
+      </p>
+      <Button variant="outline" size="sm" onClick={() => signOut()}>
+        Logout
+      </Button>
+    </div>
+  )}
+</Header>
       <main className="p-4 sm:p-6 md:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-screen-2xl mx-auto">
           
@@ -294,7 +307,7 @@ const HireUpPage: NextPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2"><Mail size={24} /> Email Template</CardTitle>
-                <CardDescription>Use placeholders like {`{job_title}`}, {`{company_name}`}, etc.</CardDescription>
+                <CardDescription>Use placeholders like {`{custom_sentence} - for AI generated sentence`}, {`{job_title}`}, {`{company_name}`}, etc.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea value={settings.emailTemplate} onChange={e => handleSettingsChange('emailTemplate', e.target.value)} rows={12} className="text-xs leading-relaxed"/>
