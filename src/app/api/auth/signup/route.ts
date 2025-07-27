@@ -6,28 +6,30 @@ const uri = process.env.MONGO_URI!;
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-if (!(global as any)._mongoClientPromise) {
-  client = new MongoClient(uri);
-  (global as any)._mongoClientPromise = client.connect();
+declare global {
+  // Ensures global type safety for hot reload in dev
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
-clientPromise = (global as any)._mongoClientPromise;
 
-export async function POST(request: NextRequest) {
+if (!global._mongoClientPromise) {
+  client = new MongoClient(uri);
+  global._mongoClientPromise = client.connect();
+}
+clientPromise = global._mongoClientPromise!;
+
+export async function POST(req: NextRequest) {
   try {
-    const contentType = request.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
+    const contentType = req.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
-    const body = await request.json();
+    const body = await req.json();
 
     const { firstName, lastName, email, password } = body;
 
     if (!firstName || !lastName || !email || !password) {
-      return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
     }
 
     const client = await clientPromise;
@@ -35,12 +37,8 @@ export async function POST(request: NextRequest) {
     const users = db.collection("users");
 
     const existingUser = await users.findOne({ email });
-
     if (existingUser) {
-      return NextResponse.json(
-        { error: "User already exists" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
     }
 
     const hashedPassword = await hash(password, 12);
@@ -53,15 +51,9 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     });
 
-    return NextResponse.json(
-      { message: "User created successfully" },
-      { status: 201 }
-    );
+    return NextResponse.json({ message: "User created successfully" }, { status: 201 });
   } catch (error) {
-    console.error("Signup error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Signup Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
