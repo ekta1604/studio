@@ -14,16 +14,14 @@ clientPromise = (global as any)._mongoClientPromise;
 
 export async function POST(request: NextRequest) {
   try {
-    if (request.method !== "POST") {
-      return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
-    }
-
-    const contentType = request.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
+    const contentType = request.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
-    const { firstName, lastName, email, password } = await request.json();
+    const body = await request.json();
+
+    const { firstName, lastName, email, password } = body;
 
     if (!firstName || !lastName || !email || !password) {
       return NextResponse.json(
