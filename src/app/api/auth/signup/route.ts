@@ -7,7 +7,6 @@ let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
 declare global {
-  // Ensures global type safety for hot reload in dev
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
@@ -15,17 +14,17 @@ if (!global._mongoClientPromise) {
   client = new MongoClient(uri);
   global._mongoClientPromise = client.connect();
 }
-clientPromise = global._mongoClientPromise!;
+clientPromise = global._mongoClientPromise;
 
 export async function POST(req: NextRequest) {
   try {
-    const contentType = req.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
+    // ✅ Prevent "undefined.startsWith" crash
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
       return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
     }
 
     const body = await req.json();
-
     const { firstName, lastName, email, password } = body;
 
     if (!firstName || !lastName || !email || !password) {
