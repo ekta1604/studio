@@ -225,6 +225,14 @@ const HireUpPage: NextPage = () => {
       });
       return;
     }
+    if (!settings.gmail || !settings.gmailAppPassword) {
+      toast({
+        variant: "destructive",
+        title: "Missing Gmail Credentials",
+        description: "Please enter your Gmail address and password in the User Profile settings.",
+      });
+      return;
+    }
     try {
       const res = await fetch('/api/sendEmail', {
         method: 'POST',
@@ -232,6 +240,8 @@ const HireUpPage: NextPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          fromEmail: settings.gmail,
+          emailPassword: settings.gmailAppPassword,
           toEmail: app.recipientEmail,
           body: app.fullEmail || '',
           company_name: app.companyName,
@@ -299,6 +309,29 @@ const HireUpPage: NextPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="resume">Resume</Label>
                   <Input id="resume" type="file" className="text-sm file:text-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gmail">Gmail Address</Label>
+                  <Input 
+                    id="gmail" 
+                    type="email" 
+                    value={settings.gmail} 
+                    onChange={e => handleSettingsChange('gmail', e.target.value)} 
+                    placeholder="Enter your Gmail address" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gmailAppPassword">Gmail Password</Label>
+                  <Input 
+                    id="gmailAppPassword" 
+                    type="password" 
+                    value={settings.gmailAppPassword} 
+                    onChange={e => handleSettingsChange('gmailAppPassword', e.target.value)} 
+                    placeholder="Enter your Gmail password or 16-digit App Password" 
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    We recommend using a 16-character App Password from Gmail for better security and guaranteed sending.
+                  </p>
                 </div>
               </CardContent>
             </Card>
