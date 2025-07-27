@@ -6,14 +6,23 @@ const uri = process.env.MONGO_URI!;
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
-if (!global._mongoClientPromise) {
+if (!(global as any)._mongoClientPromise) {
   client = new MongoClient(uri);
-  global._mongoClientPromise = client.connect();
+  (global as any)._mongoClientPromise = client.connect();
 }
-clientPromise = global._mongoClientPromise;
+clientPromise = (global as any)._mongoClientPromise;
 
 export async function POST(request: NextRequest) {
   try {
+    if (request.method !== "POST") {
+      return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+    }
+
+    const contentType = request.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      return NextResponse.json({ error: "Invalid content type" }, { status: 400 });
+    }
+
     const { firstName, lastName, email, password } = await request.json();
 
     if (!firstName || !lastName || !email || !password) {
