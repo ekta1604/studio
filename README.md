@@ -52,6 +52,23 @@ In the project directory, you can run the following commands:
 -   `npm run build`: Builds the app for production.
 -   `npm run start`: Starts the production server.
 -   `npm run lint`: Runs ESLint to check for code quality issues.
+
+## Features
+
+### Resume Attachment
+- Upload your resume (PDF, DOC, DOCX) in the User Profile section
+- Use the `{resume}` placeholder in your email template to automatically attach the resume
+- The resume will be attached to emails when the placeholder is present in the template
+- Maximum file size: 5MB
+
+## Available Scripts
+
+In the project directory, you can run the following commands:
+
+-   `npm run dev`: Runs the Next.js app in development mode with Turbopack.
+-   `npm run build`: Builds the app for production.
+-   `npm run start`: Starts the production server.
+-   `npm run lint`: Runs ESLint to check for code quality issues.
 -   `npm run typecheck`: Runs the TypeScript compiler to check for type errors without emitting files.
 -   `npm run genkit:dev`: Starts the Genkit flow server for development.
 -   `npm run genkit:watch`: Starts the Genkit flow server in watch mode.

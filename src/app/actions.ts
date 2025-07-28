@@ -22,20 +22,20 @@ export async function runGeneratePersonalizedSentence(jobDescription: string, us
     }
 }
 
-export async function sendEmail({ to, subject, text, gmailAppPassword }: { to: string, subject: string, text: string, gmailAppPassword: string }) {
-    if (!to || !subject || !text || !gmailAppPassword) {
+export async function sendEmail({ to, subject, text, gmailAppPassword, fromEmail }: { to: string, subject: string, text: string, gmailAppPassword: string, fromEmail: string }) {
+    if (!to || !subject || !text || !gmailAppPassword || !fromEmail) {
         throw new Error("All fields are required to send an email.");
     }
     const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'ektaabroad@gmail.com', // Updated sender email
+            user: fromEmail,
             pass: gmailAppPassword
         }
     });
     try {
         const info = await transporter.sendMail({
-            from: 'ektaabroad@gmail.com', // Updated sender email
+            from: fromEmail,
             to,
             subject,
             html: text.replace(/\n/g, "<br>")

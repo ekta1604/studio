@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession, signOut } from "next-auth/react";
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import type { NextPage } from "next"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ interface Application {
   status: 'Pending' | 'Generated' | 'Sent';
   personalizedSentence?: string;
   fullEmail?: string;
+  resumeFileName?: string;
 }
 
 const HireUpPage: NextPage = () => {
@@ -36,10 +37,26 @@ const HireUpPage: NextPage = () => {
     name: '',
     portfolio: '',
     skills: '',
-    emailTemplate: ``,
-    voilaApiKey: '4cb106ed-0dfe-4827-a20b-a0adcb291c05',
+    emailTemplate: `Dear {recruiter_name},
+
+I hope this email finds you well. I am writing to express my strong interest in the {job_title} position at {company_name}.
+
+{custom_sentence}
+
+I have attached my resume for your review. {resume}
+
+You can also view my portfolio at: {portfolio}
+
+I am excited about the opportunity to contribute to {company_name} and would welcome the chance to discuss how my skills and experience align with your team's needs.
+
+Thank you for considering my application. I look forward to hearing from you.
+
+Best regards,
+{user_name}`,
+    voilaApiKey: '',
     gmail: '',
-    gmailAppPassword: ''
+    gmailAppPassword: '',
+    resumeFileName: ''
   });
 
 
@@ -61,6 +78,18 @@ const HireUpPage: NextPage = () => {
 
   const [applications, setApplications] = useState<Application[]>([]);
 
+  // Ensure settings are properly initialized with empty values
+  useEffect(() => {
+    // Force clear any potential cached data
+    setSettings(prev => ({
+      ...prev,
+      gmail: '',
+      gmailAppPassword: '',
+      voilaApiKey: ''
+    }));
+    console.log('Settings initialized with empty values');
+  }, []);
+
   // Function to sanitize domain input
   function sanitizeDomain(input: string): string {
     let domain = input.trim().toLowerCase().replace(/\s+/g, '');
@@ -80,6 +109,67 @@ const HireUpPage: NextPage = () => {
 
   const handleEmailFinderChange = (field: keyof typeof emailFinder, value: string) => {
     setEmailFinder(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleResumeUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid File Type",
+        description: "Please upload a PDF, DOC, or DOCX file.",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File Too Large",
+        description: "Please upload a file smaller than 5MB.",
+      });
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSettings(prev => ({ ...prev, resumeFileName: data.fileName }));
+        toast({
+          title: "Resume Uploaded Successfully!",
+          description: `File: ${data.originalName}`,
+        });
+      } else {
+        const errorMessage = typeof data.error === 'string' ? data.error : 'Failed to upload resume.';
+        toast({
+          variant: "destructive",
+          title: "Upload Failed",
+          description: errorMessage,
+        });
+      }
+    } catch (error) {
+      console.error('Resume upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred while uploading the file.';
+      toast({
+        variant: "destructive",
+        title: "Upload Error",
+        description: errorMessage,
+      });
+    }
   };
 
   const handleFindEmail = async () => {
@@ -124,14 +214,16 @@ const HireUpPage: NextPage = () => {
             .replace(/{job_title}/g, newJob.jobTitle)
             .replace(/{company_name}/g, newJob.companyName)
             .replace(/{custom_sentence}/g, sentence)
-            .replace(/{portfolio}/g, settings.portfolio);
+            .replace(/{portfolio}/g, settings.portfolio)
+            .replace(/{resume}/g, settings.resumeFileName ? '[Resume attached]' : '');
 
         const newApplication: Application = {
             id: newId,
             ...newJob,
             status: 'Generated',
             personalizedSentence: sentence,
-            fullEmail: fullEmail
+            fullEmail: fullEmail,
+            resumeFileName: settings.resumeFileName
         };
 
         setApplications(prev => [newApplication, ...prev]);
@@ -154,7 +246,9 @@ const HireUpPage: NextPage = () => {
     navigator.clipboard.writeText(text).then(() => {
       toast({ title: "Copied to clipboard!" });
     }).catch(err => {
-      toast({ variant: "destructive", title: "Failed to copy", description: err.message });
+      console.error('Copy error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to copy to clipboard';
+      toast({ variant: "destructive", title: "Failed to copy", description: errorMessage });
     });
   };
 
@@ -206,10 +300,12 @@ const HireUpPage: NextPage = () => {
         return null;
       }
     } catch (error: any) {
+      console.error('Email search error:', error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to find email address with Voila Norbert.";
       toast({
         variant: "destructive",
         title: "Email Search Failed",
-        description: error.message || "Failed to find email address with Voila Norbert.",
+        description: errorMessage,
       });
       return null;
     }
@@ -245,6 +341,7 @@ const HireUpPage: NextPage = () => {
           toEmail: app.recipientEmail,
           body: app.fullEmail || '',
           company_name: app.companyName,
+          resumeFileName: app.resumeFileName,
         }),
       });
 
@@ -255,18 +352,20 @@ const HireUpPage: NextPage = () => {
           description: `Your application email was sent to ${app.recipientEmail}`,
         });
       } else {
+        const errorMessage = typeof data.error === 'string' ? data.error : 'An error occurred while sending the email.';
         toast({
           variant: "destructive",
           title: "❌ Failed to send email.",
-          description: data.error || "An error occurred while sending the email.",
+          description: errorMessage,
         });
       }
     } catch (err) {
-      console.error(err);
+      console.error('Email sending error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred while sending the email.';
       toast({
         variant: "destructive",
         title: "🚨 Error sending email.",
-        description: "An unexpected error occurred while sending the email.",
+        description: errorMessage,
       });
     }
   };
@@ -308,29 +407,47 @@ const HireUpPage: NextPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="resume">Resume</Label>
-                  <Input id="resume" type="file" className="text-sm file:text-foreground" />
+                  <Input 
+                    id="resume" 
+                    type="file" 
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeUpload}
+                    className="text-sm file:text-foreground" 
+                  />
+                  {settings.resumeFileName && (
+                    <p className="text-xs text-green-600">
+                      ✓ Resume uploaded: {settings.resumeFileName}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gmail">Gmail Address</Label>
                   <Input 
+                    key="gmail-input"
                     id="gmail" 
                     type="email" 
                     value={settings.gmail} 
                     onChange={e => handleSettingsChange('gmail', e.target.value)} 
-                    placeholder="Enter your Gmail address" 
+                    placeholder="your-email@gmail.com" 
+                    autoComplete="off"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gmailAppPassword">Gmail Password</Label>
+                  <Label htmlFor="gmailAppPassword">Gmail App Password</Label>
                   <Input 
+                    key="gmail-password-input"
                     id="gmailAppPassword" 
                     type="password" 
                     value={settings.gmailAppPassword} 
                     onChange={e => handleSettingsChange('gmailAppPassword', e.target.value)} 
-                    placeholder="Enter your Gmail password or 16-digit App Password" 
+                    placeholder="Enter your 16-digit App Password" 
+                    autoComplete="new-password"
                   />
                   <p className="text-xs text-muted-foreground">
-                    We recommend using a 16-character App Password from Gmail for better security and guaranteed sending.
+                    Use a 16-character App Password from Gmail for better security. 
+                    <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline ml-1">
+                      Learn how to create one
+                    </a>
                   </p>
                 </div>
               </CardContent>
@@ -349,7 +466,7 @@ const HireUpPage: NextPage = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2"><Mail size={24} /> Email Template</CardTitle>
-                <CardDescription>Use placeholders like {`{custom_sentence} - for AI generated sentence`}, {`{job_title}`}, {`{company_name}`}, etc.</CardDescription>
+                <CardDescription>Use placeholders like {`{custom_sentence} - for AI generated sentence`}, {`{job_title}`}, {`{company_name}`}, {`{resume}`} - for resume attachment, etc.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea value={settings.emailTemplate} onChange={e => handleSettingsChange('emailTemplate', e.target.value)} rows={12} className="text-xs leading-relaxed"/>
