@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { StorageService } from '@/lib/storage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,27 +33,26 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'uploads');
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
     // Generate unique filename
     const timestamp = Date.now();
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
     const fileName = `resume_${timestamp}.${fileExtension}`;
-    const filePath = join(uploadsDir, fileName);
 
-    // Convert file to buffer and save
+    // Convert file to buffer and store
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
+    
+    // Store file using storage service
+    await StorageService.storeFile(fileName, {
+      buffer,
+      originalName: file.name,
+      fileSize: file.size,
+      mimeType: file.type
+    });
 
     return NextResponse.json({ 
       success: true, 
       fileName: fileName,
-      filePath: filePath,
       originalName: file.name,
       fileSize: file.size
     });
@@ -66,4 +63,7 @@ export async function POST(req: NextRequest) {
       error: 'Failed to upload file' 
     }, { status: 500 });
   }
-} 
+}
+
+// Export storage service for use in other API routes
+export { StorageService }; 

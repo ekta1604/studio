@@ -68,12 +68,56 @@ After deployment, users need to:
 - ✅ **User Authentication**: Secure signup/login system
 - ✅ **Application Pipeline**: Track and manage job applications
 
+## File Storage Solution
+
+### Current Implementation (In-Memory Storage)
+- Resume files are stored in memory during the session
+- Files are automatically cleared when the server restarts
+- Suitable for development and small-scale deployments
+- No additional configuration required
+
+### Production Recommendations
+
+For production deployments, consider implementing cloud storage:
+
+#### Option 1: AWS S3
+```bash
+# Environment variables for AWS S3
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=your-bucket-name
+```
+
+#### Option 2: Google Cloud Storage
+```bash
+# Environment variables for Google Cloud Storage
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_BUCKET=your-bucket-name
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
+```
+
+#### Option 3: Cloudinary
+```bash
+# Environment variables for Cloudinary
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+### Implementation Steps for Cloud Storage:
+1. Uncomment the cloud storage code in `src/lib/storage.ts`
+2. Install required dependencies (e.g., `@aws-sdk/client-s3`)
+3. Set up cloud storage account and bucket
+4. Configure environment variables
+5. Update the storage service to use cloud storage instead of in-memory
+
 ## Security Notes
 
 - All user data is stored securely in MongoDB
 - Passwords are hashed using bcrypt
 - Gmail credentials are never stored, only used for sending emails
-- Resume files are stored locally and not in the database
+- Resume files are stored securely (in-memory or cloud storage)
 - No sensitive data is logged or exposed
 
 ## Support

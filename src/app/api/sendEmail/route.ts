@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { StorageService } from '../upload/route';
 
 export async function POST(req: Request) {
   const { fromEmail, emailPassword, toEmail, body, company_name, resumeFileName } = await req.json();
@@ -31,21 +30,15 @@ export async function POST(req: Request) {
   // Add resume attachment if provided
   if (resumeFileName) {
     try {
-      const uploadsDir = join(process.cwd(), 'uploads');
-      const filePath = join(uploadsDir, resumeFileName);
-      
-      // Check if file exists before trying to read it
-      const { existsSync } = await import('fs');
-      if (!existsSync(filePath)) {
-        console.warn(`Resume file not found: ${filePath}`);
-        // Continue without attachment if file doesn't exist
-      } else {
-        const fileContent = await readFile(filePath);
-        
+      const fileData = await StorageService.getFile(resumeFileName);
+      if (fileData) {
         mailOptions.attachments = [{
-          filename: resumeFileName,
-          content: fileContent
+          filename: fileData.originalName,
+          content: fileData.buffer
         }];
+      } else {
+        console.warn(`Resume file not found in storage: ${resumeFileName}`);
+        // Continue without attachment if file doesn't exist
       }
     } catch (error) {
       console.error('Error reading resume file:', error);

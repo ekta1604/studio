@@ -44,5 +44,5 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 
-# uploads
-uploads/
+# uploads (no longer used - using in-memory storage)
+# uploads/
